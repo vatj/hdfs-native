@@ -28,6 +28,7 @@ message XAttrProto {
     SECURITY  = 2;
     SYSTEM    = 3;
     RAW       = 4;
+    PROVENANCE = 5;
   }
   
   required XAttrNamespaceProto namespace = 1;
@@ -35,6 +36,11 @@ message XAttrProto {
   optional bytes value = 3;
 }
   
+message XAttrEditLogProto {
+  optional string src = 1;
+  repeated XAttrProto xAttrs = 2;
+}
+
 enum XAttrSetFlagProto {
   XATTR_CREATE     = 0x01;
   XATTR_REPLACE    = 0x02;
