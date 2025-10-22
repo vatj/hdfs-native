@@ -4,7 +4,7 @@ mod common;
 #[cfg(feature = "integration-test")]
 mod test {
     use hdfs_native::{
-        client::{ClientBuilder, FileStatus},
+        client::{ClientBuilder},
         security::tls::TlsConfig,
         Client, Result, WriteOptions,
     };

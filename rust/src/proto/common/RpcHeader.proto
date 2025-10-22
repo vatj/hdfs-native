@@ -90,11 +90,14 @@ message RpcRequestHeaderProto { // the header for the RpcRequest
   optional sint32 retryCount = 5 [default = -1];
   optional RPCTraceInfoProto traceInfo = 6; // tracing info
   optional RPCCallerContextProto callerContext = 7; // call context
-  optional int64 stateId = 8; // The last seen Global State ID
-  // Alignment context info for use with routers.
-  // The client should not interpret these bytes, but only forward bytes
-  // received from RpcResponseHeaderProto.routerFederatedState.
-  optional bytes routerFederatedState = 9;
+  /// original
+  // optional int64 stateId = 8; // The last seen Global State ID
+  // // Alignment context info for use with routers.
+  // // The client should not interpret these bytes, but only forward bytes
+  // // received from RpcResponseHeaderProto.routerFederatedState.
+  // optional bytes routerFederatedState = 9;
+  /// hopsfs-specific additions
+  optional int64 epoch = 8 [default = 0];
 }
 
 
@@ -160,11 +163,14 @@ message RpcResponseHeaderProto {
   optional RpcErrorCodeProto errorDetail = 6; // in case of error
   optional bytes clientId = 7; // Globally unique client ID
   optional sint32 retryCount = 8 [default = -1];
-  optional int64 stateId = 9; // The last written Global State ID
-  // Alignment context info for use with routers.
-  // The client should not interpret these bytes, but only
-  // forward them to the router using RpcRequestHeaderProto.routerFederatedState.
-  optional bytes routerFederatedState = 10;
+  /// original 
+  // optional int64 stateId = 9; // The last written Global State ID
+  // // Alignment context info for use with routers.
+  // // The client should not interpret these bytes, but only
+  // // forward them to the router using RpcRequestHeaderProto.routerFederatedState.
+  // optional bytes routerFederatedState = 10;
+  /// hopsfs-specific additions
+  optional int64 epoch = 9 [default = 0];
 }
 
 message RpcSaslProto {

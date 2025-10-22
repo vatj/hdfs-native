@@ -6,7 +6,7 @@ mod test {
     use hdfs_native::{
         client::ClientBuilder,
         security::tls::TlsConfig,
-        Client, Result,
+        Result,
     };
     use serial_test::serial;
     use std::env;
@@ -35,46 +35,52 @@ mod test {
         Some((namenode_url, tls_config))
     }
 
-    /// Test connecting without TLS to see what authentication methods are available
-    #[tokio::test]
-    #[serial]
-    async fn test_debug_auth_methods() -> Result<()> {
-        let (namenode_url, _) = get_tls_config()
-            .expect("TLS integration test requires environment configuration");
+    // /// Test connecting without TLS to see what authentication methods are available
+    // #[tokio::test]
+    // #[serial]
+    // async fn test_debug_auth_methods() -> Result<()> {
+    //     let (namenode_url, _) = get_tls_config()
+    //         .expect("TLS integration test requires environment configuration");
 
-        println!("Attempting to connect to: {}", namenode_url);
+    //     println!("Attempting to connect to: {}", namenode_url);
 
-        // Try to connect without TLS first to see what auth methods are offered
-        let client = ClientBuilder::new()
-            .with_url(&namenode_url)
-            .build();
+    //     // Try to connect without TLS first to see what auth methods are offered
+    //     let client = ClientBuilder::new()
+    //         .with_url(&namenode_url)
+    //         .build();
 
-        match client {
-            Ok(client) => {
-                println!("Successfully connected without TLS configuration");
+    //     match client {
+    //         Ok(client) => {
+    //             println!("Successfully connected without TLS configuration");
                 
-                // Try to list root directory to see if it works
-                match client.list_status("/", false).await {
-                    Ok(files) => {
-                        println!("Successfully listed {} files without TLS", files.len());
-                    }
-                    Err(e) => {
-                        println!("Failed to list files without TLS: {}", e);
-                    }
-                }
-            }
-            Err(e) => {
-                println!("Failed to connect without TLS: {}", e);
-            }
-        }
+    //             // Try to list root directory to see if it works
+    //             match tokio::time::timeout(std::time::Duration::from_secs(10), async { client.list_status("/", false).await }).await.expect("Timeout while listing status") {
+    //                 Ok(files) => {
+    //                     println!("Successfully listed {} files without TLS", files.len());
+    //                 }
+    //                 Err(e) => {
+    //                     println!("Failed to list files without TLS: {}", e);
+    //                 }
+    //             }
+    //         }
+    //         Err(e) => {
+    //             println!("Failed to connect without TLS: {}", e);
+    //         }
+    //     }
 
-        Ok(())
-    }
+    //     Ok(())
+    // }
 
     /// Test connecting with TLS config but debug the error
     #[tokio::test]
     #[serial]
     async fn test_debug_tls_error() -> Result<()> {
+        // Initialize logging
+        let _ = env_logger::builder()
+            .filter_level(log::LevelFilter::Debug)
+            .is_test(true)
+            .try_init();
+            
         let (namenode_url, tls_config) = get_tls_config()
             .expect("TLS integration test requires environment configuration");
 
@@ -113,14 +119,46 @@ mod test {
             Ok(client) => {
                 println!("Successfully created TLS client");
                 
-                // Try to list root directory
-                match client.list_status("/", false).await {
-                    Ok(files) => {
+                // Try to list /Projects directory first with timeout
+                println!("Attempting to list /Projects directory...");
+                let projects_result = tokio::time::timeout(
+                    std::time::Duration::from_secs(10),
+                    client.list_status("/Projects/bobby", false)
+                ).await;
+                
+                match projects_result {
+                    Ok(Ok(files)) => {
+                        println!("Successfully listed /Projects directory: {} files", files.len());
+                        for file in &files {
+                            println!("  - {}", file.path);
+                        }
+                    }
+                    Ok(Err(e)) => {
+                        println!("Failed to list /Projects directory: {}", e);
+                        println!("Error debug: {:?}", e);
+                    }
+                    Err(_) => {
+                        println!("Timeout while listing /Projects directory");
+                    }
+                }
+                
+                // Try to list root directory with timeout
+                println!("Attempting to list root directory...");
+                let root_result = tokio::time::timeout(
+                    std::time::Duration::from_secs(10),
+                    client.list_status("/", false)
+                ).await;
+                
+                match root_result {
+                    Ok(Ok(files)) => {
                         println!("Successfully listed {} files with TLS", files.len());
                     }
-                    Err(e) => {
+                    Ok(Err(e)) => {
                         println!("Failed to list files with TLS: {}", e);
                         println!("Error debug: {:?}", e);
+                    }
+                    Err(_) => {
+                        println!("Timeout while listing root directory");
                     }
                 }
             }

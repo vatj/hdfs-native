@@ -4,6 +4,7 @@ use std::io::ErrorKind;
 use std::sync::atomic::{AtomicI32, Ordering};
 use std::sync::Arc;
 use std::sync::Mutex;
+use std::time::SystemTime;
 
 
 use bytes::{Buf, BufMut, Bytes, BytesMut};
@@ -32,6 +33,7 @@ use crate::security::sasl::{SaslReader, SaslWriter};
 use crate::security::tls::TlsConfig;
 use crate::security::user::UserInfo;
 use crate::{HdfsError, Result};
+
 
 const PROTOCOL: &str = "org.apache.hadoop.hdfs.protocol.ClientProtocol";
 const DATA_TRANSFER_VERSION: u16 = 28;
@@ -182,28 +184,40 @@ impl RpcConnection {
         let next_call_id = AtomicI32::new(0);
         let call_map = Arc::new(Mutex::new(HashMap::new()));
 
+        debug!("Establishing connection to: {}", url);
         let mut stream = if let Some(tls_config) = config.get_tls_config() {
+            debug!("Using TLS connection");
             connect_tls(url, &tls_config, handle).await?
         } else {
+            debug!("Using plain TCP connection");
             connect(url, handle).await?
         };
+        debug!("Connection established, starting HDFS protocol handshake");
         
+        debug!("Writing HDFS magic bytes: hrpc");
         stream.write_all("hrpc".as_bytes()).await?;
         // Current version
+        debug!("Writing HDFS version: 9");
         stream.write_all(&[9u8]).await?;
         // Service class
+        debug!("Writing service class: 0");
         stream.write_all(&[0u8]).await?;
         // Auth protocol
         if config.security_enabled() {
+            debug!("Writing auth protocol: -33 (security enabled)");
             stream.write_all(&(-33i8).to_be_bytes()).await?;
         } else {
+            debug!("Writing auth protocol: 0 (no security)");
             stream.write_all(&(0i8).to_be_bytes()).await?;
         }
+        debug!("HDFS protocol handshake headers sent");
 
         let service = nameservice
             .map(|ns| format!("ha-hdfs:{ns}"))
             .unwrap_or(url.to_string());
+        debug!("Starting SASL negotiation with service: {}", service);
         let (user_info, reader, writer) = negotiate_sasl_session(stream, &service, config).await?;
+        debug!("SASL negotiation completed successfully for user: {:?}", user_info.effective_user);
         let (sender, receiver) = mpsc::channel::<Vec<u8>>(1000);
 
         let mut conn = RpcConnection {
@@ -218,16 +232,23 @@ impl RpcConnection {
 
         conn.start_sender(receiver, writer, handle);
 
+        debug!("Preparing connection context header");
         let context_header = conn
             .get_connection_header(-3, -1)
             .encode_length_delimited_to_vec();
+        debug!("Connection context header size: {} bytes", context_header.len());
         let context_msg = conn
             .get_connection_context()
             .encode_length_delimited_to_vec();
+        debug!("Connection context message size: {} bytes", context_msg.len());
+        debug!("Sending connection context to server");
         conn.write_messages(&[&context_header, &context_msg])
             .await?;
+        debug!("Connection context sent successfully");
+        debug!("Starting RPC listener");
         let listener = conn.start_listener(reader, handle)?;
         conn.listener = Some(listener);
+        debug!("RPC connection fully established");
 
         Ok(conn)
     }
@@ -275,6 +296,7 @@ impl RpcConnection {
             } else {
                 (None, None)
             };
+        let epoch = get_rpc_epoch_sec(); 
 
         common::RpcRequestHeaderProto {
             rpc_kind: Some(common::RpcKindProto::RpcProtocolBuffer as i32),
@@ -283,8 +305,9 @@ impl RpcConnection {
             call_id,
             client_id: self.client_id.clone(),
             retry_count: Some(retry_count),
-            state_id,
-            router_federated_state,
+            epoch: Some(epoch),
+            // state_id,
+            // router_federated_state,
             ..Default::default()
         }
     }
@@ -315,6 +338,7 @@ impl RpcConnection {
         for msg in messages.iter() {
             size += msg.len() as u32;
         }
+        debug!("Writing {} messages with total size: {} bytes", messages.len(), size);
 
         let mut buf: Vec<u8> = Vec::with_capacity(size as usize + 4);
 
@@ -323,7 +347,9 @@ impl RpcConnection {
             buf.extend(*msg);
         }
 
+        debug!("Sending buffer of {} bytes to sender", buf.len());
         let _ = self.sender.send(buf).await;
+        debug!("Buffer sent to sender successfully");
 
         Ok(())
     }
@@ -333,7 +359,9 @@ impl RpcConnection {
         method_name: &str,
         message: &[u8],
     ) -> Result<oneshot::Receiver<Result<Bytes>>> {
+        debug!("Making RPC call: {} with {} bytes", method_name, message.len());
         let call_id = self.get_next_call_id();
+        debug!("Assigned call ID: {}", call_id);
         let conn_header = self.get_connection_header(call_id, 0);
 
         debug!("RPC connection header: {:?}", conn_header);
@@ -352,9 +380,12 @@ impl RpcConnection {
         let (sender, receiver) = oneshot::channel::<Result<Bytes>>();
 
         self.call_map.lock().unwrap().insert(call_id, sender);
+        debug!("Registered call {} in call map", call_id);
 
+        debug!("Sending RPC request with {} parts", 3);
         self.write_messages(&[&conn_header_buf, &header_buf, message])
             .await?;
+        debug!("RPC request sent successfully for call {}", call_id);
 
         Ok(receiver)
     }
@@ -386,7 +417,14 @@ impl RpcListener {
             if let Err(error) = self.read_response().await {
                 match error {
                     HdfsError::IOError(e) if e.kind() == ErrorKind::UnexpectedEof => break,
-                    _ => panic!("{error:?}"),
+                    HdfsError::IOError(e) if e.kind() == ErrorKind::ConnectionReset => {
+                        log::error!("Connection reset by peer during RPC communication: {}", e);
+                        break;
+                    }
+                    _ => {
+                        log::error!("RPC listener error: {:?}", error);
+                        panic!("{error:?}")
+                    },
                 }
             }
         }
@@ -415,15 +453,15 @@ impl RpcListener {
         if let Some(call) = call {
             match rpc_response.status() {
                 RpcStatusProto::Success => {
-                    self.alignment_context
-                        .as_ref()
-                        .map(|alignment_context| {
-                            alignment_context
-                                .lock()
-                                .unwrap()
-                                .update(rpc_response.state_id, rpc_response.router_federated_state)
-                        })
-                        .transpose()?;
+                    // self.alignment_context
+                    //     .as_ref()
+                    //     .map(|alignment_context| {
+                    //         alignment_context
+                    //             .lock()
+                    //             .unwrap()
+                    //             .update(rpc_response.state_id, rpc_response.router_federated_state)
+                    //     })
+                    //     .transpose()?;
 
                     let _ = call.send(Ok(bytes));
                 }
@@ -802,6 +840,44 @@ impl DatanodeConnectionCache {
     }
 }
 
+/// hopsfs-specific additions
+static EPOCH_STATE: Lazy<Mutex<EpochState>> = Lazy::new(|| Mutex::new(EpochState::default()));
+
+#[derive(Debug)]
+struct EpochState {
+    server_reported_epoch: i64,
+    epoch_report_time: SystemTime,
+}
+
+impl Default for EpochState {
+    fn default() -> Self {
+        Self {
+            server_reported_epoch: 0,
+            epoch_report_time: SystemTime::UNIX_EPOCH,
+        }
+    }
+}
+
+pub fn set_epoch(report_time: SystemTime, epoch: i64) {
+    let mut state = EPOCH_STATE.lock().unwrap();
+    state.server_reported_epoch = epoch;
+    state.epoch_report_time = report_time;
+}
+
+pub fn get_rpc_epoch_sec() -> i64 {
+    let state = EPOCH_STATE.lock().unwrap();
+    if state.server_reported_epoch == 0 {
+        0
+    } else {
+        let time_passed = SystemTime::now()
+            .duration_since(state.epoch_report_time)
+            .unwrap_or_default()
+            .as_millis() as i64;
+        let current_time = state.server_reported_epoch + time_passed;
+        current_time / 1000
+    }
+}
+
 #[cfg(test)]
 mod test {
     use std::collections::HashMap;
@@ -811,6 +887,9 @@ mod test {
     use crate::{hdfs::connection::MAX_PACKET_HEADER_SIZE, proto::hdfs};
 
     use super::AlignmentContext;
+use std::sync::Mutex;
+use std::time::{SystemTime, UNIX_EPOCH};
+use once_cell::sync::Lazy;
 
     #[test]
     fn test_max_packet_header_size() {

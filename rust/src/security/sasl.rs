@@ -72,11 +72,15 @@ pub(crate) async fn negotiate_sasl_session(
     service: &str,
     config: &Configuration,
 ) -> Result<(UserInfo, SaslReader, SaslWriter)> {
+    debug!("Starting SASL negotiation for service: {}", service);
+    debug!("Security enabled: {}", config.security_enabled());
+    
     let (reader, writer) = stream.into_split();
     let mut reader = SaslReader::new(reader);
     let mut writer = SaslWriter::new(writer);
 
     if !config.security_enabled() {
+        debug!("Security not enabled, using simple authentication");
         return Ok((User::get_simple_user(), reader, writer));
     }
 
@@ -85,17 +89,24 @@ pub(crate) async fn negotiate_sasl_session(
         ..Default::default()
     };
 
+    debug!("Sending initial SASL negotiate message: {:?}", rpc_sasl);
     writer.send_sasl_message(&rpc_sasl).await?;
+    debug!("Initial SASL negotiate message sent successfully");
 
     let mut done = false;
     let mut session: Option<Box<dyn SaslSession>> = None;
     while !done {
         let mut response: Option<RpcSaslProto> = None;
+        debug!("Waiting for SASL response from server...");
         let message = reader.read_response().await?;
-        debug!("Handling SASL message: {:?}", message);
+        debug!("Received SASL message: {:?}", message);
+        debug!("SASL state: {:?}", SaslState::try_from(message.state));
         match SaslState::try_from(message.state).unwrap() {
             SaslState::Negotiate => {
+                debug!("Processing SASL Negotiate state");
+                debug!("Available auth methods: {:?}", message.auths);
                 let (mut selected_auth, selected_session) = select_method(&message.auths, service)?;
+                debug!("Selected auth method: {:?}", selected_auth);
                 session = selected_session;
 
                 let token = if let Some(session) = session.as_mut() {
@@ -124,10 +135,13 @@ pub(crate) async fn negotiate_sasl_session(
                 response = Some(r);
             }
             SaslState::Challenge => {
+                debug!("Processing SASL Challenge state");
+                debug!("Challenge token length: {:?}", message.token.as_ref().map(|t| t.len()));
                 let (token, _) = session
                     .as_mut()
                     .unwrap()
                     .step(message.token.as_ref().map(|t| &t[..]))?;
+                debug!("Generated response token length: {}", token.len());
 
                 let r = RpcSaslProto {
                     state: SaslState::Response as i32,
@@ -137,13 +151,18 @@ pub(crate) async fn negotiate_sasl_session(
                 response = Some(r);
             }
             SaslState::Success => {
+                debug!("Processing SASL Success state");
                 if let Some(token) = message.token.as_ref() {
+                    debug!("Final token length: {}", token.len());
                     let (_, finished) = session.as_mut().unwrap().step(Some(&token[..]))?;
                     if !finished {
                         return Err(HdfsError::SASLError(
                             "Client not finished after server success".to_string(),
                         ));
                     }
+                    debug!("SASL session finished successfully");
+                } else {
+                    debug!("SASL success with no token");
                 }
                 done = true;
             }
@@ -151,8 +170,9 @@ pub(crate) async fn negotiate_sasl_session(
         }
 
         if let Some(r) = response {
-            debug!("Sending SASL response {:?}", r);
+            debug!("Sending SASL response: {:?}", r);
             writer.send_sasl_message(&r).await?;
+            debug!("SASL response sent successfully");
         }
     }
 

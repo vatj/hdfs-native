@@ -67,6 +67,7 @@ which = "8"
 indoc = "2"
 
 [features]
+default = ["integration-test"]
 generate-protobuf = ["prost-build", "protobuf-src"]
 integration-test = ["which"]
 benchmark = ["fs-hdfs3", "which"]

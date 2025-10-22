@@ -206,6 +206,8 @@ message CompleteRequestProto {
   required string clientName = 2;
   optional ExtendedBlockProto last = 3;
   optional uint64 fileId = 4 [default = 0];  // default to GRANDFATHER_INODE_ID
+  /// hopsfs-specific addition
+  optional bytes data = 5;
 }
 
 message CompleteResponseProto {
@@ -881,6 +883,34 @@ message HAServiceStateResponseProto {
   required hadoop.common.HAServiceStateProto state = 1;
 }
 
+/// hopsfs-specific additions for active namenode list
+message ActiveNodeProto {
+  optional int64 id = 1;
+  optional string rpcHostname = 2;
+  optional string rpcIpAddress = 3;
+  optional int32 rpcPort = 4;
+  optional string serviceIpAddress = 5;
+  optional int32 servicePort = 6;
+  optional string httpAddress = 7;
+  optional int32 locationDomainId = 8;
+  extensions 9 to 9;
+}
+
+message ActiveNamenodeListRequestProto {
+}
+
+message ActiveNamenodeListResponseProto {
+  repeated ActiveNodeProto namenodes = 1;
+}
+
+message GetEpochMSRequestProto {
+}
+
+message GetEpochMSResponseProto {
+  required int64 epoch = 1;
+}
+
+
 service ClientNamenodeProtocol {
   rpc getBlockLocations(GetBlockLocationsRequestProto)
       returns(GetBlockLocationsResponseProto);
@@ -1080,4 +1110,9 @@ service ClientNamenodeProtocol {
       returns(HAServiceStateResponseProto);
   rpc getSlowDatanodeReport(GetSlowDatanodeReportRequestProto)
       returns(GetSlowDatanodeReportResponseProto);
+  /// hopsfs-specific additions for active namenode list
+  rpc getActiveNamenodesForClient (ActiveNamenodeListRequestProto) 
+    returns (ActiveNamenodeListResponseProto);
+  rpc getNNEpochMS(GetEpochMSRequestProto)
+      returns (GetEpochMSResponseProto);
 }
