@@ -68,8 +68,6 @@ which = "8"
 indoc = "2"
 
 [features]
-# Include generate-protobuf in default to enable prost-build during test runs
-default = ["integration-test", "generate-protobuf"]
 generate-protobuf = ["prost-build", "protobuf-src"]
 integration-test = ["which"]
 benchmark = ["fs-hdfs3", "which"]
