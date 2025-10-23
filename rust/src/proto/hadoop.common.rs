@@ -235,18 +235,29 @@ pub struct RpcRequestHeaderProto {
     /// call context
     #[prost(message, optional, tag = "7")]
     pub caller_context: ::core::option::Option<RpcCallerContextProto>,
-    /// The last seen Global State ID
-    #[prost(int64, optional, tag = "8")]
-    pub state_id: ::core::option::Option<i64>,
-    /// Alignment context info for use with routers.
-    /// The client should not interpret these bytes, but only forward bytes
-    /// received from RpcResponseHeaderProto.routerFederatedState.
-    #[prost(bytes = "vec", optional, tag = "9")]
-    pub router_federated_state: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// / original
+    /// optional int64 stateId = 8; // The last seen Global State ID
+    /// // Alignment context info for use with routers.
+    /// // The client should not interpret these bytes, but only forward bytes
+    /// // received from RpcResponseHeaderProto.routerFederatedState.
+    /// optional bytes routerFederatedState = 9;
+    /// / hopsfs-specific additions
+    #[prost(int64, optional, tag = "8", default = "0")]
+    pub epoch: ::core::option::Option<i64>,
 }
 /// Nested message and enum types in `RpcRequestHeaderProto`.
 pub mod rpc_request_header_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum OperationProto {
         /// The final RPC Packet
@@ -335,18 +346,29 @@ pub struct RpcResponseHeaderProto {
     pub client_id: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     #[prost(sint32, optional, tag = "8", default = "-1")]
     pub retry_count: ::core::option::Option<i32>,
-    /// The last written Global State ID
-    #[prost(int64, optional, tag = "9")]
-    pub state_id: ::core::option::Option<i64>,
-    /// Alignment context info for use with routers.
-    /// The client should not interpret these bytes, but only
-    /// forward them to the router using RpcRequestHeaderProto.routerFederatedState.
-    #[prost(bytes = "vec", optional, tag = "10")]
-    pub router_federated_state: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    /// / original
+    /// optional int64 stateId = 9; // The last written Global State ID
+    /// // Alignment context info for use with routers.
+    /// // The client should not interpret these bytes, but only
+    /// // forward them to the router using RpcRequestHeaderProto.routerFederatedState.
+    /// optional bytes routerFederatedState = 10;
+    /// / hopsfs-specific additions
+    #[prost(int64, optional, tag = "9", default = "0")]
+    pub epoch: ::core::option::Option<i64>,
 }
 /// Nested message and enum types in `RpcResponseHeaderProto`.
 pub mod rpc_response_header_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum RpcStatusProto {
         /// RPC succeeded
@@ -378,7 +400,17 @@ pub mod rpc_response_header_proto {
             }
         }
     }
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum RpcErrorCodeProto {
         /// Non-fatal Rpc error - connection left open for future rpc calls
@@ -441,7 +473,9 @@ pub mod rpc_response_header_proto {
                 "ERROR_SERIALIZING_RESPONSE" => Some(Self::ErrorSerializingResponse),
                 "ERROR_RPC_VERSION_MISMATCH" => Some(Self::ErrorRpcVersionMismatch),
                 "FATAL_UNKNOWN" => Some(Self::FatalUnknown),
-                "FATAL_UNSUPPORTED_SERIALIZATION" => Some(Self::FatalUnsupportedSerialization),
+                "FATAL_UNSUPPORTED_SERIALIZATION" => {
+                    Some(Self::FatalUnsupportedSerialization)
+                }
                 "FATAL_INVALID_RPC_HEADER" => Some(Self::FatalInvalidRpcHeader),
                 "FATAL_DESERIALIZING_REQUEST" => Some(Self::FatalDeserializingRequest),
                 "FATAL_VERSION_MISMATCH" => Some(Self::FatalVersionMismatch),
@@ -477,7 +511,17 @@ pub mod rpc_sasl_proto {
         #[prost(bytes = "vec", optional, tag = "5")]
         pub challenge: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
     }
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum SaslState {
         Success = 0,

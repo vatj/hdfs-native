@@ -9,17 +9,9 @@ pub struct FsPermissionProto {
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct AclEntryProto {
-    #[prost(
-        enumeration = "acl_entry_proto::AclEntryTypeProto",
-        required,
-        tag = "1"
-    )]
+    #[prost(enumeration = "acl_entry_proto::AclEntryTypeProto", required, tag = "1")]
     pub r#type: i32,
-    #[prost(
-        enumeration = "acl_entry_proto::AclEntryScopeProto",
-        required,
-        tag = "2"
-    )]
+    #[prost(enumeration = "acl_entry_proto::AclEntryScopeProto", required, tag = "2")]
     pub scope: i32,
     #[prost(enumeration = "acl_entry_proto::FsActionProto", required, tag = "3")]
     pub permissions: i32,
@@ -28,7 +20,17 @@ pub struct AclEntryProto {
 }
 /// Nested message and enum types in `AclEntryProto`.
 pub mod acl_entry_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum AclEntryScopeProto {
         Access = 0,
@@ -54,7 +56,17 @@ pub mod acl_entry_proto {
             }
         }
     }
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum AclEntryTypeProto {
         User = 0,
@@ -86,7 +98,17 @@ pub mod acl_entry_proto {
             }
         }
     }
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum FsActionProto {
         None = 0,
@@ -210,6 +232,10 @@ pub struct ExtendedBlockProto {
     /// len does not belong in ebid
     #[prost(uint64, optional, tag = "4", default = "0")]
     pub num_bytes: ::core::option::Option<u64>,
+    /// here for historical reasons
+    /// / hopsfs-specific addition
+    #[prost(string, optional, tag = "5", default = "")]
+    pub cloud_bucket: ::core::option::Option<::prost::alloc::string::String>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct ProvidedStorageLocationProto {
@@ -335,7 +361,17 @@ pub struct DatanodeInfoProto {
 }
 /// Nested message and enum types in `DatanodeInfoProto`.
 pub mod datanode_info_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum AdminState {
         Normal = 0,
@@ -384,17 +420,22 @@ pub struct DatanodeStorageProto {
         default = "Normal"
     )]
     pub state: ::core::option::Option<i32>,
-    #[prost(
-        enumeration = "StorageTypeProto",
-        optional,
-        tag = "3",
-        default = "Disk"
-    )]
+    #[prost(enumeration = "StorageTypeProto", optional, tag = "3", default = "Disk")]
     pub storage_type: ::core::option::Option<i32>,
 }
 /// Nested message and enum types in `DatanodeStorageProto`.
 pub mod datanode_storage_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum StorageState {
         Normal = 0,
@@ -497,12 +538,7 @@ pub struct StorageTypeQuotaInfosProto {
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct StorageTypeQuotaInfoProto {
-    #[prost(
-        enumeration = "StorageTypeProto",
-        optional,
-        tag = "1",
-        default = "Disk"
-    )]
+    #[prost(enumeration = "StorageTypeProto", optional, tag = "1", default = "Disk")]
     pub r#type: ::core::option::Option<i32>,
     #[prost(uint64, required, tag = "2")]
     pub quota: u64,
@@ -524,12 +560,7 @@ pub struct CorruptFileBlocksProto {
 /// A list of storage types.
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct StorageTypesProto {
-    #[prost(
-        enumeration = "StorageTypeProto",
-        repeated,
-        packed = "false",
-        tag = "1"
-    )]
+    #[prost(enumeration = "StorageTypeProto", repeated, packed = "false", tag = "1")]
     pub storage_types: ::prost::alloc::vec::Vec<i32>,
 }
 /// *
@@ -570,12 +601,7 @@ pub struct LocatedBlockProto {
     /// if a location in locs is cached
     #[prost(bool, repeated, tag = "6")]
     pub is_cached: ::prost::alloc::vec::Vec<bool>,
-    #[prost(
-        enumeration = "StorageTypeProto",
-        repeated,
-        packed = "false",
-        tag = "7"
-    )]
+    #[prost(enumeration = "StorageTypeProto", repeated, packed = "false", tag = "7")]
     pub storage_types: ::prost::alloc::vec::Vec<i32>,
     #[prost(string, repeated, tag = "8")]
     pub storage_i_ds: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
@@ -587,6 +613,11 @@ pub struct LocatedBlockProto {
     /// each internal block has a block token
     #[prost(message, repeated, tag = "10")]
     pub block_tokens: ::prost::alloc::vec::Vec<super::common::TokenProto>,
+    /// / hopsfs-specific addition
+    #[prost(bytes = "vec", optional, tag = "15")]
+    pub data: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    #[prost(uint64, optional, tag = "16")]
+    pub checksum: ::core::option::Option<u64>,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct BatchedListingKeyProto {
@@ -838,7 +869,17 @@ pub struct HdfsFileStatusProto {
 }
 /// Nested message and enum types in `HdfsFileStatusProto`.
 pub mod hdfs_file_status_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum FileType {
         IsDir = 1,
@@ -867,7 +908,17 @@ pub mod hdfs_file_status_proto {
             }
         }
     }
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum Flags {
         /// has ACLs
@@ -957,6 +1008,8 @@ pub struct FsServerDefaultsProto {
     pub policy_id: ::core::option::Option<u32>,
     #[prost(bool, optional, tag = "11", default = "false")]
     pub snapshot_trash_root_enabled: ::core::option::Option<bool>,
+    #[prost(bool, optional, tag = "12", default = "true")]
+    pub quota_enabled: ::core::option::Option<bool>,
 }
 /// *
 /// Directory listing
@@ -1021,7 +1074,9 @@ pub struct SnapshotStatusProto {
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct SnapshottableDirectoryListingProto {
     #[prost(message, repeated, tag = "1")]
-    pub snapshottable_dir_listing: ::prost::alloc::vec::Vec<SnapshottableDirectoryStatusProto>,
+    pub snapshottable_dir_listing: ::prost::alloc::vec::Vec<
+        SnapshottableDirectoryStatusProto,
+    >,
 }
 /// *
 /// Snapshot listing
@@ -1101,7 +1156,7 @@ pub struct SnapshotDiffReportListingProto {
 /// We restrict the max # of blocks per file
 /// (dfs.namenode.fs-limits.max-blocks-per-file), but it's better
 /// to avoid changing this.
-#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct BlockProto {
     #[prost(uint64, required, tag = "1")]
     pub block_id: u64,
@@ -1109,6 +1164,8 @@ pub struct BlockProto {
     pub gen_stamp: u64,
     #[prost(uint64, optional, tag = "3", default = "0")]
     pub num_bytes: ::core::option::Option<u64>,
+    #[prost(string, optional, tag = "4", default = "")]
+    pub cloud_bucket: ::core::option::Option<::prost::alloc::string::String>,
 }
 /// *
 /// Information related to a snapshot
@@ -1172,12 +1229,7 @@ pub struct BlockTokenSecretProto {
     pub block_id: ::core::option::Option<u64>,
     #[prost(enumeration = "AccessModeProto", repeated, packed = "false", tag = "6")]
     pub modes: ::prost::alloc::vec::Vec<i32>,
-    #[prost(
-        enumeration = "StorageTypeProto",
-        repeated,
-        packed = "false",
-        tag = "7"
-    )]
+    #[prost(enumeration = "StorageTypeProto", repeated, packed = "false", tag = "7")]
     pub storage_types: ::prost::alloc::vec::Vec<i32>,
     #[prost(string, repeated, tag = "8")]
     pub storage_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
@@ -1192,7 +1244,10 @@ pub struct BlockTokenSecretProto {
 pub struct RouterFederatedStateProto {
     /// Last seen state IDs for multiple namespaces.
     #[prost(map = "string, int64", tag = "1")]
-    pub namespace_state_ids: ::std::collections::HashMap<::prost::alloc::string::String, i64>,
+    pub namespace_state_ids: ::std::collections::HashMap<
+        ::prost::alloc::string::String,
+        i64,
+    >,
 }
 /// *
 /// Types of recognized storage media.
@@ -1201,10 +1256,18 @@ pub struct RouterFederatedStateProto {
 pub enum StorageTypeProto {
     Disk = 1,
     Ssd = 2,
-    Archive = 3,
-    RamDisk = 4,
-    Provided = 5,
-    Nvdimm = 6,
+    /// / original
+    /// ARCHIVE = 3;
+    /// RAM_DISK = 4;
+    /// PROVIDED = 5;
+    /// NVDIMM = 6;
+    /// / hopsfs-specific additions
+    Raid5 = 3,
+    Archive = 4,
+    RamDisk = 5,
+    Db = 6,
+    Provided = 7,
+    Cloud = 8,
 }
 impl StorageTypeProto {
     /// String value of the enum field names used in the ProtoBuf definition.
@@ -1215,10 +1278,12 @@ impl StorageTypeProto {
         match self {
             Self::Disk => "DISK",
             Self::Ssd => "SSD",
+            Self::Raid5 => "RAID5",
             Self::Archive => "ARCHIVE",
             Self::RamDisk => "RAM_DISK",
+            Self::Db => "DB",
             Self::Provided => "PROVIDED",
-            Self::Nvdimm => "NVDIMM",
+            Self::Cloud => "CLOUD",
         }
     }
     /// Creates an enum from field names used in the ProtoBuf definition.
@@ -1226,10 +1291,12 @@ impl StorageTypeProto {
         match value {
             "DISK" => Some(Self::Disk),
             "SSD" => Some(Self::Ssd),
+            "RAID5" => Some(Self::Raid5),
             "ARCHIVE" => Some(Self::Archive),
             "RAM_DISK" => Some(Self::RamDisk),
+            "DB" => Some(Self::Db),
             "PROVIDED" => Some(Self::Provided),
-            "NVDIMM" => Some(Self::Nvdimm),
+            "CLOUD" => Some(Self::Cloud),
             _ => None,
         }
     }
@@ -1458,7 +1525,17 @@ pub struct XAttrProto {
 }
 /// Nested message and enum types in `XAttrProto`.
 pub mod x_attr_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum XAttrNamespaceProto {
         User = 0,
@@ -2036,7 +2113,9 @@ pub struct BlockEcReconstructionInfoProto {
     #[prost(message, required, tag = "7")]
     pub ec_policy: ErasureCodingPolicyProto,
     #[prost(bytes = "vec", optional, tag = "8")]
-    pub exclude_reconstructed_indices: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
+    pub exclude_reconstructed_indices: ::core::option::Option<
+        ::prost::alloc::vec::Vec<u8>,
+    >,
 }
 /// *
 /// Codec and it's corresponding coders
@@ -2228,12 +2307,7 @@ pub struct AddBlockRequestProto {
     #[prost(string, repeated, tag = "6")]
     pub favored_nodes: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
     /// default to empty.
-    #[prost(
-        enumeration = "AddBlockFlagProto",
-        repeated,
-        packed = "false",
-        tag = "7"
-    )]
+    #[prost(enumeration = "AddBlockFlagProto", repeated, packed = "false", tag = "7")]
     pub flags: ::prost::alloc::vec::Vec<i32>,
 }
 #[derive(Clone, PartialEq, ::prost::Message)]
@@ -2277,6 +2351,9 @@ pub struct CompleteRequestProto {
     /// default to GRANDFATHER_INODE_ID
     #[prost(uint64, optional, tag = "4", default = "0")]
     pub file_id: ::core::option::Option<u64>,
+    /// / hopsfs-specific addition
+    #[prost(bytes = "vec", optional, tag = "5")]
+    pub data: ::core::option::Option<::prost::alloc::vec::Vec<u8>>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct CompleteResponseProto {
@@ -2407,7 +2484,9 @@ pub struct GetSnapshottableDirListingRequestProto {}
 #[derive(Clone, PartialEq, ::prost::Message)]
 pub struct GetSnapshottableDirListingResponseProto {
     #[prost(message, optional, tag = "1")]
-    pub snapshottable_dir_list: ::core::option::Option<SnapshottableDirectoryListingProto>,
+    pub snapshottable_dir_list: ::core::option::Option<
+        SnapshottableDirectoryListingProto,
+    >,
 }
 #[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct GetSnapshotListingRequestProto {
@@ -3089,12 +3168,7 @@ pub struct GetEditsFromTxidResponseProto {
 pub struct ListOpenFilesRequestProto {
     #[prost(int64, required, tag = "1")]
     pub id: i64,
-    #[prost(
-        enumeration = "OpenFilesTypeProto",
-        repeated,
-        packed = "false",
-        tag = "2"
-    )]
+    #[prost(enumeration = "OpenFilesTypeProto", repeated, packed = "false", tag = "2")]
     pub types: ::prost::alloc::vec::Vec<i32>,
     #[prost(string, optional, tag = "3")]
     pub path: ::core::option::Option<::prost::alloc::string::String>,
@@ -3116,12 +3190,7 @@ pub struct ListOpenFilesResponseProto {
     pub entries: ::prost::alloc::vec::Vec<OpenFilesBatchResponseProto>,
     #[prost(bool, required, tag = "2")]
     pub has_more: bool,
-    #[prost(
-        enumeration = "OpenFilesTypeProto",
-        repeated,
-        packed = "false",
-        tag = "3"
-    )]
+    #[prost(enumeration = "OpenFilesTypeProto", repeated, packed = "false", tag = "3")]
     pub types: ::prost::alloc::vec::Vec<i32>,
 }
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
@@ -3139,12 +3208,42 @@ pub struct SatisfyStoragePolicyResponseProto {}
 pub struct HaServiceStateRequestProto {}
 #[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
 pub struct HaServiceStateResponseProto {
-    #[prost(
-        enumeration = "super::common::HaServiceStateProto",
-        required,
-        tag = "1"
-    )]
+    #[prost(enumeration = "super::common::HaServiceStateProto", required, tag = "1")]
     pub state: i32,
+}
+/// / hopsfs-specific additions for active namenode list
+#[derive(Clone, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ActiveNodeProto {
+    #[prost(int64, optional, tag = "1")]
+    pub id: ::core::option::Option<i64>,
+    #[prost(string, optional, tag = "2")]
+    pub rpc_hostname: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(string, optional, tag = "3")]
+    pub rpc_ip_address: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "4")]
+    pub rpc_port: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "5")]
+    pub service_ip_address: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "6")]
+    pub service_port: ::core::option::Option<i32>,
+    #[prost(string, optional, tag = "7")]
+    pub http_address: ::core::option::Option<::prost::alloc::string::String>,
+    #[prost(int32, optional, tag = "8")]
+    pub location_domain_id: ::core::option::Option<i32>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct ActiveNamenodeListRequestProto {}
+#[derive(Clone, PartialEq, ::prost::Message)]
+pub struct ActiveNamenodeListResponseProto {
+    #[prost(message, repeated, tag = "1")]
+    pub namenodes: ::prost::alloc::vec::Vec<ActiveNodeProto>,
+}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetEpochMsRequestProto {}
+#[derive(Clone, Copy, PartialEq, Eq, Hash, ::prost::Message)]
+pub struct GetEpochMsResponseProto {
+    #[prost(int64, required, tag = "1")]
+    pub epoch: i64,
 }
 #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
 #[repr(i32)]
@@ -3389,7 +3488,17 @@ pub struct DataTransferEncryptorMessageProto {
 }
 /// Nested message and enum types in `DataTransferEncryptorMessageProto`.
 pub mod data_transfer_encryptor_message_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum DataTransferEncryptorStatus {
         Success = 0,
@@ -3506,19 +3615,9 @@ pub struct OpWriteBlockProto {
     pub requested_checksum: ChecksumProto,
     #[prost(message, optional, tag = "10")]
     pub caching_strategy: ::core::option::Option<CachingStrategyProto>,
-    #[prost(
-        enumeration = "StorageTypeProto",
-        optional,
-        tag = "11",
-        default = "Disk"
-    )]
+    #[prost(enumeration = "StorageTypeProto", optional, tag = "11", default = "Disk")]
     pub storage_type: ::core::option::Option<i32>,
-    #[prost(
-        enumeration = "StorageTypeProto",
-        repeated,
-        packed = "false",
-        tag = "12"
-    )]
+    #[prost(enumeration = "StorageTypeProto", repeated, packed = "false", tag = "12")]
     pub target_storage_types: ::prost::alloc::vec::Vec<i32>,
     /// *
     /// Hint to the DataNode that the block can be allocated on transient
@@ -3538,7 +3637,17 @@ pub struct OpWriteBlockProto {
 }
 /// Nested message and enum types in `OpWriteBlockProto`.
 pub mod op_write_block_proto {
-    #[derive(Clone, Copy, Debug, PartialEq, Eq, Hash, PartialOrd, Ord, ::prost::Enumeration)]
+    #[derive(
+        Clone,
+        Copy,
+        Debug,
+        PartialEq,
+        Eq,
+        Hash,
+        PartialOrd,
+        Ord,
+        ::prost::Enumeration
+    )]
     #[repr(i32)]
     pub enum BlockConstructionStage {
         PipelineSetupAppend = 0,
@@ -3569,7 +3678,9 @@ pub mod op_write_block_proto {
                 Self::PipelineSetupAppend => "PIPELINE_SETUP_APPEND",
                 Self::PipelineSetupAppendRecovery => "PIPELINE_SETUP_APPEND_RECOVERY",
                 Self::DataStreaming => "DATA_STREAMING",
-                Self::PipelineSetupStreamingRecovery => "PIPELINE_SETUP_STREAMING_RECOVERY",
+                Self::PipelineSetupStreamingRecovery => {
+                    "PIPELINE_SETUP_STREAMING_RECOVERY"
+                }
                 Self::PipelineClose => "PIPELINE_CLOSE",
                 Self::PipelineCloseRecovery => "PIPELINE_CLOSE_RECOVERY",
                 Self::PipelineSetupCreate => "PIPELINE_SETUP_CREATE",
@@ -3581,9 +3692,13 @@ pub mod op_write_block_proto {
         pub fn from_str_name(value: &str) -> ::core::option::Option<Self> {
             match value {
                 "PIPELINE_SETUP_APPEND" => Some(Self::PipelineSetupAppend),
-                "PIPELINE_SETUP_APPEND_RECOVERY" => Some(Self::PipelineSetupAppendRecovery),
+                "PIPELINE_SETUP_APPEND_RECOVERY" => {
+                    Some(Self::PipelineSetupAppendRecovery)
+                }
                 "DATA_STREAMING" => Some(Self::DataStreaming),
-                "PIPELINE_SETUP_STREAMING_RECOVERY" => Some(Self::PipelineSetupStreamingRecovery),
+                "PIPELINE_SETUP_STREAMING_RECOVERY" => {
+                    Some(Self::PipelineSetupStreamingRecovery)
+                }
                 "PIPELINE_CLOSE" => Some(Self::PipelineClose),
                 "PIPELINE_CLOSE_RECOVERY" => Some(Self::PipelineCloseRecovery),
                 "PIPELINE_SETUP_CREATE" => Some(Self::PipelineSetupCreate),
@@ -3600,12 +3715,7 @@ pub struct OpTransferBlockProto {
     pub header: ClientOperationHeaderProto,
     #[prost(message, repeated, tag = "2")]
     pub targets: ::prost::alloc::vec::Vec<DatanodeInfoProto>,
-    #[prost(
-        enumeration = "StorageTypeProto",
-        repeated,
-        packed = "false",
-        tag = "3"
-    )]
+    #[prost(enumeration = "StorageTypeProto", repeated, packed = "false", tag = "3")]
     pub target_storage_types: ::prost::alloc::vec::Vec<i32>,
     #[prost(string, repeated, tag = "4")]
     pub target_storage_ids: ::prost::alloc::vec::Vec<::prost::alloc::string::String>,
@@ -3618,12 +3728,7 @@ pub struct OpReplaceBlockProto {
     pub del_hint: ::prost::alloc::string::String,
     #[prost(message, required, tag = "3")]
     pub source: DatanodeInfoProto,
-    #[prost(
-        enumeration = "StorageTypeProto",
-        optional,
-        tag = "4",
-        default = "Disk"
-    )]
+    #[prost(enumeration = "StorageTypeProto", optional, tag = "4", default = "Disk")]
     pub storage_type: ::core::option::Option<i32>,
     #[prost(string, optional, tag = "5")]
     pub storage_id: ::core::option::Option<::prost::alloc::string::String>,
