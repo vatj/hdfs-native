@@ -28,6 +28,15 @@ use crate::proto::{
 use crate::security::digest::DigestSaslSession;
 use crate::{HdfsError, Result};
 
+// Small helper to show a short hex prefix for debug logs
+fn hex_prefix(buf: &[u8], n: usize) -> String {
+    buf.iter()
+        .take(n)
+        .map(|b| format!("{:02x}", b))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
+
 use super::gssapi::GssapiSession;
 use super::user::{User, UserInfo};
 
@@ -71,6 +80,7 @@ pub(crate) async fn negotiate_sasl_session(
     stream: ConnectionStream,
     service: &str,
     config: &Configuration,
+    tls_config: Option<&crate::security::tls::TlsConfig>,
 ) -> Result<(UserInfo, SaslReader, SaslWriter)> {
     debug!("Starting SASL negotiation for service: {}", service);
     debug!("Security enabled: {}", config.security_enabled());
@@ -81,6 +91,26 @@ pub(crate) async fn negotiate_sasl_session(
 
     if !config.security_enabled() {
         debug!("Security not enabled, using simple authentication");
+        // If TLS is enabled, try to extract username from certificate
+        if let Some(tls_cfg) = tls_config {
+            debug!("TLS enabled, attempting to extract username from client certificate");
+            match tls_cfg.extract_username_from_cert() {
+                Ok(Some(username)) => {
+                    debug!("Extracted username from certificate: {}", username);
+                    let user_info = UserInfo {
+                        real_user: None,
+                        effective_user: Some(username),
+                    };
+                    return Ok((user_info, reader, writer));
+                }
+                Ok(None) => {
+                    debug!("No username found in certificate CN, falling back to system username");
+                }
+                Err(e) => {
+                    debug!("Failed to extract username from certificate: {}, falling back to system username", e);
+                }
+            }
+        }
         return Ok((User::get_simple_user(), reader, writer));
     }
 
@@ -351,9 +381,13 @@ impl SaslWriter {
         let message_buf = message.encode_length_delimited_to_vec();
         let size = (header_buf.len() + message_buf.len()) as u32;
 
-        self.stream.write_all(&size.to_be_bytes()).await?;
-        self.stream.write_all(&header_buf).await?;
-        self.stream.write_all(&message_buf).await?;
+        // Log the outgoing SASL message parts for debugging
+        let mut out = Vec::with_capacity(4 + header_buf.len() + message_buf.len());
+        out.extend_from_slice(&size.to_be_bytes());
+        out.extend_from_slice(&header_buf);
+        out.extend_from_slice(&message_buf);
+        debug!("SASL send: total {} bytes prefix: {}", out.len(), hex_prefix(&out, 16));
+        self.stream.write_all(&out).await?;
         self.stream.flush().await?;
 
         Ok(())

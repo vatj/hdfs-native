@@ -15,7 +15,7 @@ use crate::hdfs::protocol::{LeaseTracker, NamenodeProtocol};
 use crate::proto::hdfs;
 use crate::{HdfsError, Result};
 
-const COMPLETE_RETRY_DELAY_MS: u64 = 500;
+const COMPLETE_RETRY_DELAY_MS: u64 = 5000;
 const COMPLETE_RETRIES: u32 = 5;
 
 pub struct FileReader {

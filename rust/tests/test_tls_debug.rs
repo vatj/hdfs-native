@@ -118,47 +118,24 @@ mod test {
         match client {
             Ok(client) => {
                 println!("Successfully created TLS client");
-                
-                // Try to list /Projects directory first with timeout
-                println!("Attempting to list /Projects directory...");
+
+                // Try to get status of /Projects/bobby directory first with timeout
+                println!("Attempting to get status /Projects/bobby directory...");
                 let projects_result = tokio::time::timeout(
                     std::time::Duration::from_secs(10),
-                    client.list_status("/Projects/bobby", false)
+                    client.get_file_info("/Projects/bobby")
                 ).await;
                 
                 match projects_result {
-                    Ok(Ok(files)) => {
-                        println!("Successfully listed /Projects directory: {} files", files.len());
-                        for file in &files {
-                            println!("  - {}", file.path);
-                        }
+                    Ok(Ok(file_info)) => {
+                        println!("Successfully retrieved file info: {:?}", file_info);
                     }
                     Ok(Err(e)) => {
-                        println!("Failed to list /Projects directory: {}", e);
+                        println!("Failed to get status of /Projects/bobby directory: {}", e);
                         println!("Error debug: {:?}", e);
                     }
                     Err(_) => {
-                        println!("Timeout while listing /Projects directory");
-                    }
-                }
-                
-                // Try to list root directory with timeout
-                println!("Attempting to list root directory...");
-                let root_result = tokio::time::timeout(
-                    std::time::Duration::from_secs(10),
-                    client.list_status("/", false)
-                ).await;
-                
-                match root_result {
-                    Ok(Ok(files)) => {
-                        println!("Successfully listed {} files with TLS", files.len());
-                    }
-                    Ok(Err(e)) => {
-                        println!("Failed to list files with TLS: {}", e);
-                        println!("Error debug: {:?}", e);
-                    }
-                    Err(_) => {
-                        println!("Timeout while listing root directory");
+                        println!("Timeout while getting status of /Projects/bobby directory");
                     }
                 }
             }

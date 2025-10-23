@@ -10,7 +10,7 @@ use std::time::SystemTime;
 use bytes::{Buf, BufMut, Bytes, BytesMut};
 use chrono::{prelude::*, TimeDelta};
 use crc::{Crc, Table, CRC_32_CKSUM, CRC_32_ISCSI};
-use log::{debug, warn};
+use log::{debug, info, warn};
 use once_cell::sync::Lazy;
 use prost::Message;
 use tokio::runtime::Handle;
@@ -36,9 +36,19 @@ use crate::{HdfsError, Result};
 
 
 const PROTOCOL: &str = "org.apache.hadoop.hdfs.protocol.ClientProtocol";
+// const PROTOCOL: &str = "";
 const DATA_TRANSFER_VERSION: u16 = 28;
 const MAX_PACKET_HEADER_SIZE: usize = 33;
 const DATANODE_CACHE_EXPIRY: TimeDelta = TimeDelta::seconds(3);
+
+// Helper to produce a short hex prefix for debug logs
+fn hex_prefix(buf: &[u8], n: usize) -> String {
+    buf.iter()
+        .take(n)
+        .map(|b| format!("{:02x}", b))
+        .collect::<Vec<_>>()
+        .join(" ")
+}
 
 const CRC32: Crc<u32, Table<16>> = Crc::<u32, Table<16>>::new(&CRC_32_CKSUM);
 const CRC32C: Crc<u32, Table<16>> = Crc::<u32, Table<16>>::new(&CRC_32_ISCSI);
@@ -185,38 +195,47 @@ impl RpcConnection {
         let call_map = Arc::new(Mutex::new(HashMap::new()));
 
         debug!("Establishing connection to: {}", url);
-        let mut stream = if let Some(tls_config) = config.get_tls_config() {
+        let mut stream = if let Some(ref tls_config) = config.get_tls_config() {
             debug!("Using TLS connection");
-            connect_tls(url, &tls_config, handle).await?
+            connect_tls(url, tls_config, handle).await?
         } else {
             debug!("Using plain TCP connection");
             connect(url, handle).await?
         };
+        // Log which transport variant we're using (Tcp vs Tls) to make
+        // it explicit in traces that the framing layer operates on the
+        // TLS-wrapped connection when TLS is enabled.
+        match &stream {
+            crate::hdfs::connection_stream::ConnectionStream::Tls(_) => debug!("Transport: TLS"),
+            crate::hdfs::connection_stream::ConnectionStream::Tcp(_) => debug!("Transport: TCP"),
+        }
         debug!("Connection established, starting HDFS protocol handshake");
         
-        debug!("Writing HDFS magic bytes: hrpc");
-        stream.write_all("hrpc".as_bytes()).await?;
+        // Build handshake buffer in one shot to avoid interleaved writes
+        let mut handshake_buf = Vec::new();
+        handshake_buf.extend_from_slice(b"hrpc");
         // Current version
-        debug!("Writing HDFS version: 9");
-        stream.write_all(&[9u8]).await?;
+        handshake_buf.push(9u8);
         // Service class
-        debug!("Writing service class: 0");
-        stream.write_all(&[0u8]).await?;
+        handshake_buf.push(0u8);
         // Auth protocol
         if config.security_enabled() {
-            debug!("Writing auth protocol: -33 (security enabled)");
-            stream.write_all(&(-33i8).to_be_bytes()).await?;
+            debug!("Auth protocol: -33 (security enabled)");
+            handshake_buf.extend_from_slice(&(-33i8).to_be_bytes());
         } else {
-            debug!("Writing auth protocol: 0 (no security)");
-            stream.write_all(&(0i8).to_be_bytes()).await?;
+            debug!("Auth protocol: 0 (no security)");
+            handshake_buf.extend_from_slice(&(0i8).to_be_bytes());
         }
+
+        debug!("Sending HDFS protocol handshake ({} bytes) prefix: {}", handshake_buf.len(), hex_prefix(&handshake_buf, 16));
+        stream.write_all(&handshake_buf).await?;
         debug!("HDFS protocol handshake headers sent");
 
         let service = nameservice
             .map(|ns| format!("ha-hdfs:{ns}"))
             .unwrap_or(url.to_string());
         debug!("Starting SASL negotiation with service: {}", service);
-        let (user_info, reader, writer) = negotiate_sasl_session(stream, &service, config).await?;
+        let (user_info, reader, writer) = negotiate_sasl_session(stream, &service, config, config.get_tls_config().as_ref()).await?;
         debug!("SASL negotiation completed successfully for user: {:?}", user_info.effective_user);
         let (sender, receiver) = mpsc::channel::<Vec<u8>>(1000);
 
@@ -261,9 +280,13 @@ impl RpcConnection {
     ) {
         handle.spawn(async move {
             while let Some(msg) = rx.recv().await {
+                debug!("sender: sending {} bytes prefix: {}", msg.len(), hex_prefix(&msg, 16));
                 match writer.write_all(&msg).await {
-                    Ok(_) => (),
-                    Err(_) => break,
+                    Ok(_) => debug!("sender: sent {} bytes", msg.len()),
+                    Err(e) => {
+                        debug!("sender: write error: {:?}", e);
+                        break;
+                    }
                 }
             }
         });
@@ -305,7 +328,7 @@ impl RpcConnection {
             call_id,
             client_id: self.client_id.clone(),
             retry_count: Some(retry_count),
-            epoch: Some(epoch),
+            epoch: state_id,
             // state_id,
             // router_federated_state,
             ..Default::default()
@@ -324,6 +347,12 @@ impl RpcConnection {
         };
 
         debug!("Connection context: {:?}", context);
+        
+        // Debug the encoded context bytes
+        let encoded_context = context.encode_length_delimited_to_vec();
+        debug!("Encoded connection context bytes: {:?}", encoded_context);
+        debug!("Encoded connection context length: {}", encoded_context.len());
+        
         context
     }
 
@@ -374,6 +403,11 @@ impl RpcConnection {
             client_protocol_version: 1,
         };
         debug!("RPC request header: {:?}", msg_header);
+        
+        // Debug the encoded message bytes
+        let encoded_header = msg_header.encode_length_delimited_to_vec();
+        debug!("Encoded RPC request header bytes: {:?}", encoded_header);
+        debug!("Encoded RPC request header length: {}", encoded_header.len());
 
         let header_buf = msg_header.encode_length_delimited_to_vec();
 
@@ -453,15 +487,16 @@ impl RpcListener {
         if let Some(call) = call {
             match rpc_response.status() {
                 RpcStatusProto::Success => {
-                    // self.alignment_context
-                    //     .as_ref()
-                    //     .map(|alignment_context| {
-                    //         alignment_context
-                    //             .lock()
-                    //             .unwrap()
-                    //             .update(rpc_response.state_id, rpc_response.router_federated_state)
-                    //     })
-                    //     .transpose()?;
+                    self.alignment_context
+                        .as_ref()
+                        .map(|alignment_context| {
+                            alignment_context
+                                .lock()
+                                .unwrap()
+                                // .update(rpc_response.state_id, rpc_response.router_federated_state)
+                                .update(rpc_response.epoch, None)
+                        })
+                        .transpose()?;
 
                     let _ = call.send(Ok(bytes));
                 }
@@ -647,13 +682,24 @@ impl DatanodeConnection {
         config: &Configuration,
         handle: &Handle,
     ) -> Result<Self> {
-        let url = format!("{}:{}", datanode_id.ip_addr, datanode_id.xfer_port);
-        
-        let stream = if let Some(tls_config) = config.get_tls_config() {
-            connect_tls(&url, &tls_config, handle).await?
-        } else {
-            connect(&url, handle).await?
+        let url = match config.get_datanode_host_override() {
+            Some(override_host) => {
+                debug!("Datanode host override: {} for datanode {}", override_host, datanode_id.ip_addr);
+                format!("{}:{}", override_host, datanode_id.xfer_port)
+            },
+            None => {
+                debug!("No datanode host override specified. Using default datanode address: {}:{}", datanode_id.ip_addr, datanode_id.xfer_port);
+                format!("{}:{}", datanode_id.ip_addr, datanode_id.xfer_port)
+            },
         };
+        info!("Connecting to datanode at {}", url);
+        
+        // let stream = if let Some(tls_config) = config.get_tls_config() {
+        //     connect_tls(&url, &tls_config, handle).await?
+        // } else {
+        //     connect(&url, handle).await?
+        // };
+        let stream = connect(&url, handle).await?;
 
         let sasl_connection = SaslDatanodeConnection::create(stream);
         let (reader, writer) = sasl_connection

@@ -49,6 +49,7 @@ uuid = { version = "1", features = ["v4"] }
 webpki-roots = "1.0"
 which = { version = "8", optional = true }
 whoami = "1"
+x509-parser = "0.16"
 
 [target.'cfg(unix)'.dependencies]
 # Just used for benchmarks
@@ -67,7 +68,8 @@ which = "8"
 indoc = "2"
 
 [features]
-default = ["integration-test"]
+# Include generate-protobuf in default to enable prost-build during test runs
+default = ["integration-test", "generate-protobuf"]
 generate-protobuf = ["prost-build", "protobuf-src"]
 integration-test = ["which"]
 benchmark = ["fs-hdfs3", "which"]

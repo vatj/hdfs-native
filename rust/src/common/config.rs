@@ -24,6 +24,7 @@ const DFS_CLIENT_FAILOVER_RESOLVER_USE_FQDN: &str = "dfs.client.failover.resolve
 const DFS_CLIENT_FAILOVER_RANDOM_ORDER: &str = "dfs.client.failover.random.order";
 const DFS_CLIENT_FAILOVER_PROXY_PROVIDER: &str = "dfs.client.failover.proxy.provider";
 const DFS_DATA_TRANSFER_PROTECTION: &str = "dfs.data.transfer.protection";
+const HDFS_DATANODE_HOST_OVERRIDE: &str = "hdfs.datanode.host.override";
 
 const HADOOP_SECURITY_AUTHENTICATION: &str = "hadoop.security.authentication";
 
@@ -126,6 +127,10 @@ impl Configuration {
         }
 
         Some(config)
+    }
+
+    pub fn get_datanode_host_override(&self) -> Option<&str> {
+        self.get(HDFS_DATANODE_HOST_OVERRIDE)
     }
 
     pub(crate) fn get_urls_for_nameservice(&self, nameservice: &str) -> Result<Vec<String>> {

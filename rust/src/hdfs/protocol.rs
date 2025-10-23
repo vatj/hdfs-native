@@ -271,7 +271,7 @@ impl NamenodeProtocol {
             client_name: self.client_name.clone(),
             last,
             file_id,
-            data: Some(Vec::new()),
+            data: None,
         };
         self.call("complete", message, true).await
     }

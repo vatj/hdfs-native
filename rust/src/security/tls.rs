@@ -6,6 +6,7 @@ use rustls::pki_types::{CertificateDer, PrivateKeyDer, ServerName};
 use rustls::{ClientConfig, RootCertStore, DigitallySignedStruct};
 use rustls_pemfile::{certs, private_key};
 use webpki_roots;
+use x509_parser::prelude::*;
 
 use crate::{HdfsError, Result};
 
@@ -98,6 +99,31 @@ impl TlsConfig {
             }
 
             Ok(Some(root_store))
+        } else {
+            Ok(None)
+        }
+    }
+
+    /// Extract username from the client certificate CN field
+    /// For HopsFS certificates with CN like "bobby__meb10000", extracts "bobby"
+    pub fn extract_username_from_cert(&self) -> Result<Option<String>> {
+        let certs = self.load_client_certs()?;
+        if let Some(cert_der) = certs.first() {
+            match X509Certificate::from_der(cert_der.as_ref()) {
+                Ok((_, cert)) => {
+                    let subject = cert.subject();
+                    // Look for CN (Common Name) in the subject
+                    for attr in subject.iter_common_name() {
+                        if let Ok(cn_str) = attr.as_str() {
+                            return Ok(Some(cn_str.to_string()));
+                        }
+                    }
+                    Ok(None)
+                }
+                Err(e) => Err(HdfsError::SASLError(format!(
+                    "Failed to parse client certificate: {}", e
+                )))
+            }
         } else {
             Ok(None)
         }

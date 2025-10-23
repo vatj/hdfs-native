@@ -11,6 +11,8 @@ mod test {
     use serial_test::serial;
     use std::env;
 
+    
+
     /// Get TLS configuration from environment variables
     /// 
     /// Required environment variables:
@@ -23,6 +25,12 @@ mod test {
     /// - HDFS_TLS_VERIFY_SERVER: Whether to verify server certificate (default: true)
     /// - HDFS_TLS_SERVER_HOSTNAME: Override hostname for certificate verification
     fn get_tls_config() -> Option<(String, TlsConfig)> {
+        // Initialize logging
+        let _ = env_logger::builder()
+            .filter_level(log::LevelFilter::Debug)
+            .is_test(true)
+            .try_init();
+
         let namenode_url = env::var("HDFS_NAMENODE_URL").ok()?;
         let cert_path = env::var("HDFS_CLIENT_CERT_PATH").ok()?;
         let key_path = env::var("HDFS_CLIENT_KEY_PATH").ok()?;
@@ -58,6 +66,7 @@ mod test {
         config_map.insert("hdfs.tls.enabled".to_string(), "true".to_string());
         config_map.insert("hdfs.tls.client.cert.path".to_string(), tls_config.client_cert_path.clone());
         config_map.insert("hdfs.tls.client.key.path".to_string(), tls_config.client_key_path.clone());
+    
         
         if let Some(ca_cert_path) = &tls_config.ca_cert_path {
             config_map.insert("hdfs.tls.ca.cert.path".to_string(), ca_cert_path.clone());
@@ -68,6 +77,9 @@ mod test {
         if let Some(server_hostname) = &tls_config.server_hostname {
             config_map.insert("hdfs.tls.server.hostname".to_string(), server_hostname.clone());
         }
+
+        config_map.insert("hdfs.datanode.host.override".to_string(),
+            env::var("HDFS_DATANODE_HOST_OVERRIDE").unwrap_or_default());
 
         ClientBuilder::new()
             .with_url(&namenode_url)
@@ -89,7 +101,7 @@ mod test {
             println!("  {} ({})", file.path, if file.isdir { "dir" } else { "file" });
         }
 
-        assert!(files.len() >= 0); // Should at least not fail
+        assert!(files.len() == 4); // Should at least not fail
         Ok(())
     }
 
@@ -98,22 +110,25 @@ mod test {
     #[serial] 
     async fn test_tls_file_operations() -> Result<()> {
         let client = create_tls_client().await?;
+        let writable_dir = env::var("HDFS_TEST_WRITABLE_DIR").unwrap_or_else(|_| "/tmp".to_string());
 
-        let test_path = "/tmp/tls_test_file.txt";
+        let test_path = format!("{}/tls_test_file.txt", writable_dir);
         let test_data = b"Hello from TLS-authenticated HDFS client!";
 
         // Clean up any existing test file
-        let _ = client.delete(test_path, false).await;
+        let _ = client.delete(test_path.as_str(), false).await;
 
         // Write test data
-        let mut writer = client.create(test_path, WriteOptions::default()).await?;
+        let mut writer = client.create(test_path.as_str(), WriteOptions::default()).await?;
+        println!("file operations: Writing data to {}", test_path);
         writer.write(test_data.to_vec().into()).await?;
+        println!("file operations: Data written, closing writer");
         writer.close().await?;
 
         println!("Successfully wrote {} bytes to {}", test_data.len(), test_path);
 
         // Read back the data
-        let mut reader = client.read(test_path).await?;
+        let mut reader = client.read(test_path.as_str()).await?;
         let buffer = reader.read(reader.file_length()).await?;
 
         println!("Successfully read {} bytes from {}", buffer.len(), test_path);
@@ -122,14 +137,14 @@ mod test {
         assert_eq!(buffer.as_ref(), test_data, "Read data doesn't match written data");
 
         // Get file status
-        let file_status = client.get_file_info(test_path).await?;
+        let file_status = client.get_file_info(test_path.as_str()).await?;
         assert_eq!(file_status.length, test_data.len());
         assert!(!file_status.isdir);
 
         println!("File status: {} bytes, modified: {:?}", file_status.length, file_status.modification_time);
 
         // Clean up
-        client.delete(test_path, false).await?;
+        client.delete(test_path.as_str(), false).await?;
         println!("Successfully deleted test file");
 
         Ok(())
@@ -140,30 +155,31 @@ mod test {
     #[serial]
     async fn test_tls_directory_operations() -> Result<()> {
         let client = create_tls_client().await?;
+        let writable_dir = env::var("HDFS_TEST_WRITABLE_DIR").unwrap_or_else(|_| "/tmp".to_string());
 
-        let test_dir = "/tmp/tls_test_dir";
-        let test_subdir = "/tmp/tls_test_dir/subdir";
-        let test_file = "/tmp/tls_test_dir/test_file.txt";
+        let test_dir = format!("{}/tls_test_dir", writable_dir);
+        let test_subdir = format!("{}/tls_test_dir/subdir", writable_dir);
+        let test_file = format!("{}/tls_test_dir/test_file.txt", writable_dir);
 
         // Clean up any existing test directory
-        let _ = client.delete(test_dir, true).await;
+        let _ = client.delete(test_dir.as_str(), true).await;
 
         // Create directory
-        client.mkdirs(test_dir, 0o755, true).await?;
+        client.mkdirs(test_dir.as_str(), 0o755, true).await?;
         println!("Successfully created directory: {}", test_dir);
 
         // Create subdirectory
-        client.mkdirs(test_subdir, 0o755, true).await?;
+        client.mkdirs(test_subdir.as_str(), 0o755, true).await?;
         println!("Successfully created subdirectory: {}", test_subdir);
 
         // Create a file in the directory
-        let mut writer = client.create(test_file, WriteOptions::default()).await?;
+        let mut writer = client.create(test_file.as_str(), WriteOptions::default()).await?;
         writer.write(b"test content".to_vec().into()).await?;
         writer.close().await?;
         println!("Successfully created file: {}", test_file);
 
         // List directory contents
-        let files = client.list_status(test_dir, false).await?;
+        let files = client.list_status(test_dir.as_str(), false).await?;
         assert_eq!(files.len(), 2); // Should have subdir and test_file
 
         println!("Directory contents:");
@@ -178,7 +194,7 @@ mod test {
         assert!(file_found, "Test file not found in listing");
 
         // Clean up
-        client.delete(test_dir, true).await?;
+        client.delete(test_dir.as_str(), true).await?;
         println!("Successfully deleted test directory");
 
         Ok(())
@@ -189,16 +205,17 @@ mod test {
     #[serial]
     async fn test_tls_large_file_operations() -> Result<()> {
         let client = create_tls_client().await?;
+        let writable_dir = env::var("HDFS_TEST_WRITABLE_DIR").unwrap_or_else(|_| "/tmp".to_string());
 
-        let test_path = "/tmp/tls_large_test_file.dat";
+        let test_path = format!("{}/tls_large_test_file.dat", writable_dir);
         let chunk_size = 64 * 1024; // 64KB chunks
         let total_chunks = 16; // Total file size: 1MB
 
         // Clean up any existing test file
-        let _ = client.delete(test_path, false).await;
+        let _ = client.delete(test_path.as_str(), false).await;
 
         // Write large file in chunks
-        let mut writer = client.create(test_path, WriteOptions::default()).await?;
+        let mut writer = client.create(test_path.as_str(), WriteOptions::default()).await?;
         let mut original_data = Vec::new();
 
         for i in 0..total_chunks {
@@ -211,7 +228,7 @@ mod test {
         println!("Successfully wrote {} bytes in {} chunks", original_data.len(), total_chunks);
 
         // Read back the entire file
-        let mut reader = client.read(test_path).await?;
+        let mut reader = client.read(test_path.as_str()).await?;
         let read_data = reader.read(reader.file_length()).await?;
 
         println!("Successfully read {} bytes", read_data.len());
@@ -221,14 +238,14 @@ mod test {
         assert_eq!(read_data.as_ref(), &original_data, "File content mismatch");
 
         // Test partial reads
-        let mut reader = client.read(test_path).await?;
+        let mut reader = client.read(test_path.as_str()).await?;
         let partial_data = reader.read(chunk_size).await?;
         
         assert_eq!(partial_data.as_ref(), &original_data[0..chunk_size], "Partial read mismatch");
         println!("Partial read verification successful");
 
         // Clean up
-        client.delete(test_path, false).await?;
+        client.delete(test_path.as_str(), false).await?;
         println!("Successfully deleted large test file");
 
         Ok(())
@@ -239,6 +256,7 @@ mod test {
     #[serial]
     async fn test_tls_authentication() -> Result<()> {
         let client = create_tls_client().await?;
+        let writable_dir = env::var("HDFS_TEST_WRITABLE_DIR").unwrap_or_else(|_| "/tmp".to_string());
 
         // Test accessing a path that requires authentication
         // The fact that we can list the root directory means TLS auth worked
@@ -247,14 +265,14 @@ mod test {
         println!("TLS authentication successful - able to list {} items in root", files.len());
 
         // Test that we can perform authenticated operations
-        let test_path = "/tmp/tls_auth_test";
+        let test_path = format!("{}/tls_auth_test", writable_dir);
         
         // Try to create a directory (requires write permissions)
-        match client.mkdirs(test_path, 0o755, true).await {
+        match client.mkdirs(test_path.as_str(), 0o755, true).await {
             Ok(_) => {
                 println!("Successfully created directory with TLS authentication");
                 // Clean up
-                let _ = client.delete(test_path, false).await;
+                let _ = client.delete(test_path.as_str(), false).await;
             }
             Err(e) => {
                 println!("Directory creation failed (might be permissions): {}", e);
@@ -270,40 +288,41 @@ mod test {
     #[serial]
     async fn test_tls_file_copy() -> Result<()> {
         let client = create_tls_client().await?;
+        let writable_dir = env::var("HDFS_TEST_WRITABLE_DIR").unwrap_or_else(|_| "/tmp".to_string());
 
-        let source_path = "/tmp/tls_source_file.txt";
-        let dest_path = "/tmp/tls_dest_file.txt";
+        let source_path = format!("{}/tls_source_file.txt", writable_dir);
+        let dest_path = format!("{}/tls_dest_file.txt", writable_dir);
         let test_data = b"Data to be copied via TLS connection";
 
         // Clean up any existing files
-        let _ = client.delete(source_path, false).await;
-        let _ = client.delete(dest_path, false).await;
+        let _ = client.delete(source_path.as_str(), false).await;
+        let _ = client.delete(dest_path.as_str(), false).await;
 
         // Create source file
-        let mut writer = client.create(source_path, WriteOptions::default()).await?;
+        let mut writer = client.create(source_path.as_str(), WriteOptions::default()).await?;
         writer.write(test_data.to_vec().into()).await?;
         writer.close().await?;
 
         // Copy by reading from source and writing to destination
-        let mut reader = client.read(source_path).await?;
+        let mut reader = client.read(source_path.as_str()).await?;
         let source_data = reader.read(reader.file_length()).await?;
 
-        let mut dest_writer = client.create(dest_path, WriteOptions::default()).await?;
+        let mut dest_writer = client.create(dest_path.as_str(), WriteOptions::default()).await?;
         dest_writer.write(source_data.clone()).await?;
         dest_writer.close().await?;
 
         println!("Successfully copied {} bytes from {} to {}", source_data.len(), source_path, dest_path);
 
         // Verify the copy
-        let mut dest_reader = client.read(dest_path).await?;
+        let mut dest_reader = client.read(dest_path.as_str()).await?;
         let dest_data = dest_reader.read(dest_reader.file_length()).await?;
 
         assert_eq!(dest_data.as_ref(), test_data, "Copied file content doesn't match original");
         println!("File copy verification successful");
 
         // Clean up
-        client.delete(source_path, false).await?;
-        client.delete(dest_path, false).await?;
+        client.delete(source_path.as_str(), false).await?;
+        client.delete(dest_path.as_str(), false).await?;
 
         Ok(())
     }
@@ -317,6 +336,8 @@ mod test {
             println!("  HDFS_NAMENODE_URL=hdfs://your-namenode:8020");
             println!("  HDFS_CLIENT_CERT_PATH=/path/to/client.crt");
             println!("  HDFS_CLIENT_KEY_PATH=/path/to/client.key");
+            println!("  HDFS_TEST_WRITABLE_DIR=/path/to/writable/dir");
+            println!("  HDFS_DATANODE_HOST_OVERRIDE=your-datanode-loadbalancer");
             println!("");
             println!("Optional variables:");
             println!("  HDFS_CA_CERT_PATH=/path/to/ca.crt");
